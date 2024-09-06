@@ -1,0 +1,40 @@
+# -*- mode: poly-ansible -*-
+---
+- name: ClickHouse install
+  hosts: all
+  remote_user: vagrant
+  become: true
+  tasks:
+    - name: apt init
+      ansible.builtin.shell: apt-get update
+      args:
+        chdir: /var/lib/apt/lists
+        creates: /var/lib/apt/lists/lock
+    - name: ansible prereq packages
+      ansible.builtin.shell: apt-get install -y gpg
+      args:
+        creates: /usr/bin/gpg
+    - name: clickhouse apt key
+      ansible.builtin.apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 8919F6BD2B48D754
+    - name: clickhouse apt repo
+      ansible.builtin.apt_repository:
+        repo: deb https://packages.clickhouse.com/deb stable main
+        filename: clickhouse-stable
+        update_cache: true
+    - name: install packages
+      ansible.builtin.package:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - dirmngr
+          - pv
+          - clickhouse-server
+          - clickhouse-client
+        state: present
+    - name: start clickhouse
+      ansible.builtin.service:
+        name: clickhouse-server
+        enabled: true
+        state: started
