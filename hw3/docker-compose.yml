@@ -1,0 +1,61 @@
+# Вменяемого provision в docker compose не нашел.
+# Пришлось извращаться c docker-provision.sh
+services:
+  cfg:
+    image: ${MONGO_IMAGE}
+    command: --configsvr --replSet cfg --port 27017 --keyFile /keyfile
+    volumes:
+      - ./private/keyfile:/keyfile
+    deploy:
+      mode: replicated
+      replicas: 3
+      resources:
+        limits:
+          memory: 300m
+  shard1:
+    image: ${MONGO_IMAGE}
+    command: --shardsvr --replSet shard1 --port 27017 --keyFile /keyfile
+    volumes:
+      - ./private/keyfile:/keyfile
+    deploy:
+      mode: replicated
+      replicas: 3
+      resources:
+        limits:
+          memory: 500m
+  shard2:
+    image: ${MONGO_IMAGE}
+    command: --shardsvr --replSet shard2 --port 27017 --keyFile /keyfile
+    volumes:
+      - ./private/keyfile:/keyfile
+    deploy:
+      mode: replicated
+      replicas: 3
+      resources:
+        limits:
+          memory: 500m
+  shard3:
+    image: ${MONGO_IMAGE}
+    command: --shardsvr --replSet shard3 --port 27017 --keyFile /keyfile
+    volumes:
+      - ./private/keyfile:/keyfile
+    deploy:
+      mode: replicated
+      replicas: 3
+      resources:
+        limits:
+          memory: 500m
+  mongos:
+    image: ${MONGO_IMAGE}
+    command: mongos --configdb cfg/lesson06_cfg_1:27017,lesson06_cfg_2:27017,lesson06_cfg_3:27017 --port 27017 --bind_ip_all --keyFile /keyfile
+    volumes:
+      - ./private/keyfile:/keyfile
+    deploy:
+      resources:
+        limits:
+          memory: 300m
+    depends_on:
+      - cfg
+      - shard1
+      - shard2
+      - shard3
