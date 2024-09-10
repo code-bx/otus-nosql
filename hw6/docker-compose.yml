@@ -1,0 +1,35 @@
+version: "3.3"
+
+# 3 node test cluster configured with about 2GiB of RAM per node
+
+services:
+
+  cseed:
+    image: ${CASSANDRA_IMAGE}
+    environment:
+      - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    volumes:
+      - ./cassandra-env.sh:/etc/cassandra/cassandra-env.sh
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: 2
+          memory: 2G
+
+  cnode:
+    image: ${CASSANDRA_IMAGE}
+    environment:
+      - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    volumes:
+      - ./cassandra-env.sh:/etc/cassandra/cassandra-env.sh
+    depends_on:
+      - cseed
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: 2
+          memory: 2G
