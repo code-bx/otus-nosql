@@ -1,0 +1,31 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bullseye64"
+
+  config.vm.provider :libvirt do |domain|
+    domain.cpus = 1
+    domain.memory = 512
+  end
+
+  config.vm.provision :ansible do |ansible|
+    ansible.config_file = "../ansible/ansible.cfg"
+    #ansible.verbose = "vv"
+    ansible.playbook = "playbook.yml"
+    ansible.become = true
+  end
+
+  config.vm.define "etcd1" do |node|
+    node.vm.hostname = "etcd1"
+  end
+
+  config.vm.define "etcd2" do |node|
+    node.vm.hostname = "etcd2"
+  end
+
+  config.vm.define "etcd3" do |node|
+    node.vm.hostname = "etcd3"
+  end
+
+end

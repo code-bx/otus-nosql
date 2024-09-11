@@ -1,0 +1,62 @@
+# -*- mode: poly-ansible -*-
+---
+
+- name: Etcd install
+  hosts: all
+  remote_user: vagrant
+  become: true
+  vars:
+    data_dir: /var/lib/etcd/test
+  tasks:
+    - name: apt init
+      ansible.builtin.shell: apt-get update
+      args:
+        chdir: /var/lib/apt/lists
+        creates: /var/lib/apt/lists/lock
+    - name: ansible prereq packages
+      ansible.builtin.shell: apt-get install -y gpg
+      args:
+        creates: /usr/bin/gpg
+    - name: install packages
+      ansible.builtin.package:
+        name:
+          - etcd
+          - curl
+        state: present
+    - name: stat data_dir
+      ansible.builtin.stat:
+        path: "{{ data_dir }}"
+        get_attributes: false
+        get_checksum: false
+        get_mime: false
+      register: st
+    - name: bootstrap etcd cluster
+      block:
+        - name: stop etcd
+          ansible.builtin.service:
+            name: etcd
+            state: stopped
+        - name: configure etcd
+          ansible.builtin.copy:
+            dest: /etc/default/etcd
+            content: |
+              ETCD_NAME="{{ ansible_hostname }}"
+              ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379"
+              ETCD_ADVERTISE_CLIENT_URLS="http://{{ ansible_fqdn }}:2379"
+              ETCD_LISTEN_PEER_URLS="http://0.0.0.0:2380"
+              ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ ansible_fqdn }}:2380"
+              ETCD_INITIAL_CLUSTER_TOKEN="test"
+              ETCD_INITIAL_CLUSTER_STATE="new"
+              ETCD_INITIAL_CLUSTER="etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380"
+              ETCD_DATA_DIR="{{ data_dir }}"
+        - name: stop etcd
+          ansible.builtin.service:
+            name: etcd
+            enabled: true
+            state: started
+      when: st.stat.isdir is not defined
+    - name: set cluster state to existing
+      ansible.builtin.lineinfile:
+        path: /etc/default/etcd
+        regex: 'ETCD_INITIAL_CLUSTER_STATE="new"'
+        line: 'ETCD_INITIAL_CLUSTER_STATE="existing"'
