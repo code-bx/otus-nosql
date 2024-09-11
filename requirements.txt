@@ -1,0 +1,6 @@
+ansible-core    == 2.14
+
+# lesson16
+redis[hiredis]  == 4.5.5
+pytest          == 7.3.1
+pytest-order    == 1.1.0
