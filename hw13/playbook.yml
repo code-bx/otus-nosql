@@ -1,0 +1,37 @@
+# -*- mode: poly-ansible -*-
+---
+
+- name: Tarantool Cartridge for test install
+  hosts: all
+  remote_user: vagrant
+  become: true
+  tasks:
+    - name: apt init
+      ansible.builtin.shell: apt-get update
+      args:
+        chdir: /var/lib/apt/lists
+        creates: /var/lib/apt/lists/lock
+    - name: ansible prereq packages
+      ansible.builtin.shell: apt-get install -y gpg
+      args:
+        creates: /usr/bin/gpg
+    - name: tarantool prereq packages
+      ansible.builtin.package:
+        name:
+          - cmake
+          - curl
+          - gcc
+          - git
+          - make
+          - unzip
+        state: present
+    - name: tarantool repo setup
+      ansible.builtin.shell: curl -L https://tarantool.io/release/2/installer.sh | bash
+      args:
+        creates: /etc/apt/sources.list.d/tarantool_2.list
+    - name: tarantool packages
+      ansible.builtin.package:
+        name:
+          - tarantool
+          - cartridge-cli
+        state: present
