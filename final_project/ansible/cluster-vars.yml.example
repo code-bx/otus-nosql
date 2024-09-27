@@ -1,0 +1,8 @@
+# это хозяйство надо как-то заполнять после того как будет вся
+# информация о топологии
+---
+clickhouse_cluster_name: test_cluster
+clickhouse_secret: "chreplkey"
+s3_endpoint: "https://storage.yandexcloud.net/bucket/"
+s3_access_key_id: "YC_access_key_id"
+s3_secret_access_key: "YC_secret_access_key_id"

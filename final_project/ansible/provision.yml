@@ -1,0 +1,154 @@
+# -*- mode: poly-ansible -*-
+---
+
+- name: ClickHouse common setup
+  hosts: all
+  remote_user: vagrant
+  become: true
+  tasks:
+    - name: apt init
+      ansible.builtin.shell: apt-get update
+      args:
+        chdir: /var/lib/apt/lists
+        creates: /var/lib/apt/lists/lock
+    - name: ansible prereq packages
+      ansible.builtin.shell: apt-get install -y gpg || apt-get update && apt-get install -y gpg
+      # в Yandex Cluod имеется завих /var/lib/apt/lists/lock есть, но
+      # данные о пакетах не полные, поэтому приходится извращаться с || &&
+      args:
+        creates: /usr/bin/gpg
+    - name: clickhouse apt key
+      ansible.builtin.apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 8919F6BD2B48D754
+    - name: clickhouse apt repo
+      ansible.builtin.apt_repository:
+        repo: deb https://packages.clickhouse.com/deb stable main
+        filename: clickhouse-stable
+        update_cache: true
+    - name: install common packages
+      ansible.builtin.package:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - dirmngr
+          - firewalld
+          - sysfsutils
+          - atop
+        state: present
+    - name: enable firewalld
+      ansible.builtin.service:
+        name: firewalld
+        enabled: true
+        state: started
+    - name: firewalld add subnets to internal zone
+      ansible.posix.firewalld:
+        zone: internal
+        source: "{{ clickhouse_net_internal_cidr }}"
+        immediate: true
+        permanent: true
+        offline: true
+        state: enabled
+    - name: switch THP to madvise
+      ansible.builtin.lineinfile:
+        path: /etc/sysfs.conf
+        line: kernel/mm/transparent_hugepage/enabled = madvise
+      register: sysfs_rc
+    - name: apply sysfs settings
+      ansible.builtin.service:
+        name: sysfsutils
+        enabled: true
+        state: "{{ 'restarted' if sysfs_rc.changed else 'started' }}"
+
+- name: ClickHouse Keeper Setup
+  hosts: keepers
+  vars_files:
+    - cluster-vars.yml
+  remote_user: vagrant
+  become: true
+  tasks:
+    - name: install keeper packages
+      ansible.builtin.package:
+        name:
+          - clickhouse-keeper
+        state: present
+    - name: firewalld open keeper ports for internal net
+      ansible.posix.firewalld:
+        zone: internal
+        port: "{{item}}"
+        immediate: true
+        permanent: true
+        offline: true
+        state: enabled
+      loop:
+        - "9181/tcp"
+        - "9234/tcp"
+    - name: keeper_config.xml
+      ansible.builtin.template:
+        src: templates/keeper_config.xml.jinja2
+        dest: /etc/clickhouse-keeper/keeper_config.xml
+        lstrip_blocks: true
+        group: clickhouse
+        owner: clickhouse
+        mode: 'u+w,a+r'
+      register: conf_rc
+    - name: start clickhouse-keeper
+      ansible.builtin.service:
+        name: clickhouse-keeper
+        enabled: true
+        state: "{{ 'restarted' if conf_rc.changed else 'started' }}"
+
+- name: ClickHouse Server Setup
+  hosts: clickhouse
+  vars_files:
+    - cluster-vars.yml
+  remote_user: vagrant
+  become: true
+  tasks:
+    - name: install clickhouse packages
+      ansible.builtin.package:
+        name:
+          - pv
+          - clickhouse-server
+          - clickhouse-client
+        state: present
+    - name: firewalld open keeper ports for internal net
+      ansible.posix.firewalld:
+        zone: internal
+        port: "{{item}}"
+        immediate: true
+        permanent: true
+        offline: true
+        state: enabled
+      loop:
+        - "9000/tcp"
+        - "9004/tcp"
+        - "9005/tcp"
+        - "9009/tcp"
+        - "8123/tcp"
+    - name: clickhouse S3 credentials
+      ansible.builtin.template:
+        src: "templates/clickhouse.jinja2"
+        dest: "/etc/default/clickhouse"
+        owner: clickhouse
+        group: clickhouse
+        mode: "600"
+    - name: clickhouse config
+      ansible.builtin.template:
+        src: "templates/{{ item }}.jinja2"
+        dest: "/etc/clickhouse-server/config.d/{{ item }}"
+        lstrip_blocks: true
+        group: clickhouse
+        owner: clickhouse
+        mode: 'u+w,a+r'
+      register: conf_rc
+      loop:
+        - remote-servers.xml
+        - macros.xml
+        - network-and-logging.xml
+        - use-keeper.xml
+    - name: start clickhouse-server
+      ansible.builtin.service:
+        name: clickhouse-server
+        enabled: true
+        state: "{{ 'restarted' if conf_rc.changed else 'started' }}"

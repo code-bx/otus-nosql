@@ -1,0 +1,20 @@
+<clickhouse>
+  <remote_servers replace="true">
+    <{{ clickhouse_cluster_name }}>
+    <secret>{{ clickhouse_secret }}</secret>
+    {% for shard_id in range(1, hostvars["clickhouse1"]["clickhouse_shards"]|int + 1) %}
+    <shard>
+      <internal_replication>true</internal_replication>
+      {% for node in groups["clickhouse"] %}
+      {%  if hostvars[node]["clickhouse_shard_id"]|int == shard_id %}
+      <replica>
+        <host>{{ hostvars[node]["clickhouse_host_internal_addr"] }}</host>
+        <port>9000</port>
+      </replica>
+      {%  endif %}
+      {% endfor %}
+    </shard>
+    {% endfor %}
+    </{{ clickhouse_cluster_name }}>
+  </remote_servers>
+</clickhouse>
