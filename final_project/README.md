@@ -20,7 +20,7 @@ export YC_SERVICE_ACCOUNT_KEY_FILE=.../terraform-key.json
 Если проект еще не инициализирован
 
 ```bash
-cd {project_dir}/lesson99
+cd {project_dir}/final_project
 terraform init
 ```
 
